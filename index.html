@@ -1,1 +1,130 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>YEYESWAB</title>
+
+<style>
+    body {
+        background:#04080f;
+        color:white;
+        font-family:Arial;
+        margin:0;
+        padding:20px;
+        text-align:center;
+    }
+    .card {
+        background:#0c1424;
+        padding:20px;
+        border-radius:15px;
+        max-width:380px;
+        margin:0 auto;
+        box-shadow:0 0 20px #000;
+    }
+    input, select {
+        width:100%;
+        padding:12px;
+        border-radius:8px;
+        border:none;
+        margin-top:8px;
+        font-size:16px;
+    }
+    button {
+        width:100%;
+        padding:14px;
+        border:none;
+        background:#23a6f2;
+        border-radius:10px;
+        color:white;
+        margin-top:15px;
+        font-size:18px;
+    }
+</style>
+</head>
+<body>
+
+<h2>YEYESWAB — Simple Solana Swap</h2>
+
+<div class="card">
+    <button id="connectBtn">Connect Wallet</button>
+
+    <h3 style="margin-top:25px;">Swap</h3>
+
+    <input id="amountIn" type="number" placeholder="Amount In">
+
+    <select id="tokenIn">
+        <option value="So11111111111111111111111111111111111111112">SOL</option>
+    </select>
+
+    <select id="tokenOut" style="margin-top:10px;">
+        <option value="Es9vMFrzaCERzYLztsF6D2PfYZ7R6puj949iEzb7gA3y">USDT</option>
+    </select>
+
+    <button id="swapBtn">Swap</button>
+</div>
+
+<script type="module">
+import {
+    Connection,
+    PublicKey,
+    Transaction
+} from "https://esm.sh/@solana/web3.js";
+
+const JUP_API = "https://quote-api.jup.ag/v6/quote";
+
+let wallet = null;
+
+// --- Connect Wallet ---
+document.getElementById("connectBtn").onclick = async () => {
+    if (window.phantom?.solana) {
+        const resp = await window.phantom.solana.connect();
+        wallet = resp.publicKey.toString();
+        document.getElementById("connectBtn").innerText = "Connected: " + wallet.substring(0,6) + "...";
+    } else {
+        alert("Install Phantom Wallet!");
+    }
+};
+
+// --- Swap ---
+document.getElementById("swapBtn").onclick = async () => {
+    if (!wallet) return alert("Connect wallet dulu");
+
+    const amount = document.getElementById("amountIn").value;
+    const inputMint = document.getElementById("tokenIn").value;
+    const outputMint = document.getElementById("tokenOut").value;
+
+    const amountInLamports = (amount * 1_000_000_000).toString();
+
+    // --- GET QUOTE ---
+    const quote = await fetch(`${JUP_API}?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountInLamports}&slippageBps=100`).then(r=>r.json());
+
+    // Tambahkan referral fee (0.3% = 30 bps)
+    quote.feeBps = 30;
+    quote.feeAccount = "FSqRLFnykDnCZ6mQdnn4GPPwNz6NEFYU7sHKmrrw1X5b";  // GANTI INI !!!
+
+    // --- GET SWAP TRANSACTION FROM JUPITER ---
+    const swapTx = await fetch("https://quote-api.jup.ag/v6/swap-instructions", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+            quoteResponse: quote,
+            userPublicKey: wallet
+        })
+    }).then(r => r.json());
+
+    // --- EXECUTE TRANSACTION ---
+    const connection = new Connection("https://api.mainnet-beta.solana.com");
+
+    const tx = Transaction.from(Buffer.from(swapTx.swapTransaction, "base64"));
+    tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+
+    const signed = await window.phantom.solana.signTransaction(tx);
+    const txid = await connection.sendRawTransaction(signed.serialize());
+
+    alert("Swap Success!\nTX: " + txid);
+};
+</script>
+</body>
+</html>
