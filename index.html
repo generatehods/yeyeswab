@@ -5,80 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>YeyeSwab — Solana DEX</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #050b18;
-      color: #fff;
-    }
-
-    .container {
-      max-width: 420px;
-      margin: 40px auto;
-      padding: 20px;
-      background: #0a1226;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
-    }
-
-    button {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 8px;
-      background: #14f195;
-      color: black;
-      font-size: 16px;
-      margin-top: 10px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    input {
-      width: 100%;
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid #333;
-      background: #0d1836;
-      color: #fff;
-      margin-top: 8px;
-      font-size: 15px;
-    }
-
-    .label {
-      margin-top: 18px;
-      font-size: 14px;
-      opacity: 0.8;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
   <div class="container">
-    <h2>YeyeSwab DEX (Mainnet)</h2>
+    <h2>YeyeSwab — Mainnet DEX</h2>
 
     <button id="connectBtn">Connect Wallet</button>
+    <div id="walletAddress" class="small"></div>
 
-    <div id="walletAddress" style="margin-top: 10px; opacity: .6;"></div>
-
-    <hr style="margin: 25px 0; opacity: .1;">
+    <hr>
 
     <div class="label">Token Mint Address</div>
     <input id="tokenMint" placeholder="Paste Token Mint" />
 
-    <button id="detectBtn">Detect Token Info</button>
+    <button id="detectBtn">Detect Token</button>
+    <div id="tokenInfo"></div>
 
-    <div id="tokenInfo" style="margin-top: 10px; opacity: .9;"></div>
+    <hr>
 
-    <hr style="margin: 25px 0; opacity: .1;">
-
-    <div class="label">From Amount</div>
+    <div class="label">Amount</div>
     <input id="amount" placeholder="Amount to swap" />
 
     <button id="swapBtn">Swap via Jupiter</button>
 
-    <div id="status" style="margin-top: 20px;"></div>
+    <div id="status"></div>
   </div>
 
   <script type="module" src="./web.js"></script>
