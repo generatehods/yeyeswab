@@ -1,27 +1,43 @@
-<div class="container">
-  <h2>YeyeSwab — Mainnet DEX</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YeyeSwab — Mainnet DEX</title>
 
-  <button id="connectBtn">Connect Wallet</button>
-  <div id="walletAddress" class="small"></div>
+  <link rel="stylesheet" href="style.css" />
+</head>
 
-  <div class="label">Balance</div>
-  <div id="balanceSOL" class="small">SOL: 0</div>
-  <div id="balanceToken" class="small">Token: 0</div>
+<body>
+  <div class="container">
+    <h2>YeyeSwab — Mainnet DEX</h2>
 
-  <hr>
+    <button id="connectBtn" class="btn">Connect Wallet</button>
+    <div id="walletAddress" class="small muted">Not connected</div>
 
-  <div class="label">Token Mint Address</div>
-  <input id="tokenMint" placeholder="Paste Token Mint" />
+    <div class="label">Balance</div>
+    <div id="balanceSOL" class="small">SOL: 0</div>
+    <div id="balanceToken" class="small">Token: 0</div>
 
-  <button id="detectBtn">Detect Token</button>
-  <div id="tokenInfo"></div>
+    <hr />
 
-  <hr>
+    <div class="label">Token Mint Address</div>
+    <input id="tokenMint" placeholder="Paste Token Mint" />
 
-  <div class="label">Amount</div>
-  <input id="amount" placeholder="Amount to swap" />
+    <button id="detectBtn" class="btn secondary">Detect Token</button>
+    <div id="tokenInfo" class="info"></div>
 
-  <button id="swapBtn">Swap via Jupiter</button>
+    <hr />
 
-  <div id="status"></div>
-</div>
+    <div class="label">Amount</div>
+    <input id="amount" placeholder="Amount to swap" />
+
+    <button id="swapBtn" class="btn primary">Swap via Jupiter</button>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <!-- script di-load paling bawah supaya semua elemen sudah ada -->
+  <script type="module" src="./web.js"></script>
+</body>
+</html>
