@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>YEYESWAB — Endocrine System DEX</title>
+<title>YEYESWAB — Solana DEX Powered by Jupiter</title>
 
 <style>
     body {
@@ -39,12 +39,23 @@
         color:white;
         margin-top:15px;
         font-size:18px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    button:hover {
+        background-color: #1a7fb2;
+    }
+    #errorMsg {
+        color: #ff4d4d;
+        margin-top: 10px;
+        font-size: 14px;
+        min-height: 20px;
     }
 </style>
 </head>
 <body>
 
-<h2>YEYESWAB — Simple Solana Swap (Endocrine System)</h2>
+<h2>YEYESWAB — Simple Solana Swap</h2>
 
 <div class="card">
     <button id="connectBtn">Connect Wallet</button>
@@ -54,12 +65,14 @@
     <input id="amountIn" type="number" placeholder="Amount In">
 
     <select id="tokenIn">
-        <option value="">Token In</option>
+        <option value="" disabled selected>Select Token In (with Balance)</option>
     </select>
 
     <select id="tokenOut" style="margin-top:10px;">
-        <option value="">Token Out</option>
+        <option value="" disabled selected>Select Token Out</option>
     </select>
+    
+    <div id="errorMsg"></div>
 
     <button id="swapBtn">Swap</button>
 </div>
@@ -69,11 +82,11 @@ import {
     Connection,
     PublicKey,
     LAMPORTS_PER_SOL,
-    Transaction
+    Transaction,
+    clusterApiUrl
 } from "https://esm.sh/@solana/web3.js";
 
-// --- TOKEN DEFINITIONS ---
-// Pastikan desimal di sini benar! USDC/USDT umumnya 6. SOL adalah 9.
+// --- KONFIGURASI PENTING ---
 const ALL_TOKENS = [
     { name: "SOL", mint: "So11111111111111111111111111111111111111112", decimals: 9 },
     { name: "USDC", mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGHZad949EoE", decimals: 6 },
@@ -81,25 +94,42 @@ const ALL_TOKENS = [
     { name: "JUP", mint: "JUPyiwrYJFskUPiHa7hkeR8bocQokkBZexzL8CyhrUD", decimals: 6 },
     { name: "WEN", mint: "5h7E2B5eB5tT4q1M12zS8f4fK6M22P7T4v8G4g6X6Q2", decimals: 5 },
     { name: "PYTH", mint: "HZ1xYq262h8T49oE4u8C1m7J4f7E7z4f7z4f7z4f7z4f", decimals: 6 }, 
-    { name: "ENDC", mint: "[REPLACE WITH YOUR ENDOCRINE SYSTEM MINT ADDRESS]", decimals: 6 }, // Your Token
+    { name: "BONK", mint: "DezX8Bn7kgTXdseztF22G6Kje9F3HUMisAJKEMGfS1PT", decimals: 5 }, 
+    { name: "ENDC", mint: "[REPLACE WITH YOUR ENDOCRINE SYSTEM MINT ADDRESS]", decimals: 6 }, 
     { name: "FROG", mint: "[REPLACE WITH FROG MINT ADDRESS]", decimals: 6 },
 ];
 
+// ALAMAT FEE ANDA SUDAH DIMASUKKAN
+const REFERRAL_FEE_ACCOUNT = "FSqRLFnykDnCZ6mQdnn4GPPwNz6NEFYU7sHKmrrw1X5b";
+const REFERRAL_FEE_BPS = 30; // 0.3%
+
+// --- SETUP API & VARIABEL GLOBAL ---
 const JUP_API = "https://quote-api.jup.ag/v6/quote";
-const connection = new Connection("https://api.mainnet-beta.solana.com");
+const connection = new Connection(clusterApiUrl('mainnet-beta'), 'confirmed'); 
 
 let wallet = null;
+const errorDisplay = document.getElementById("errorMsg");
 
 // --- UTILITY FUNCTIONS ---
 
-// Function to fetch wallet balances
+function displayError(message) {
+    errorDisplay.textContent = message;
+    setTimeout(() => {
+        errorDisplay.textContent = '';
+    }, 5000); 
+}
+
 async function getWalletBalances(publicKey) {
     const balances = {};
     const walletPublicKey = new PublicKey(publicKey);
 
     // 1. Get SOL Balance
-    const solBalanceLamports = await connection.getBalance(walletPublicKey);
-    balances["So11111111111111111111111111111111111111112"] = solBalanceLamports / LAMPORTS_PER_SOL;
+    try {
+        const solBalanceLamports = await connection.getBalance(walletPublicKey);
+        balances["So11111111111111111111111111111111111111112"] = solBalanceLamports / LAMPORTS_PER_SOL;
+    } catch (e) {
+        balances["So11111111111111111111111111111111111111112"] = 0;
+    }
 
     // 2. Get SPL Token Balances
     for (const token of ALL_TOKENS.filter(t => t.mint !== "So11111111111111111111111111111111111111112")) {
@@ -111,40 +141,31 @@ async function getWalletBalances(publicKey) {
 
             if (tokenAccounts.value.length > 0) {
                 const accountInfo = await connection.getTokenAccountBalance(tokenAccounts.value[0].pubkey);
-                // Use uiAmount and format to 4 decimal places
                 balances[token.mint] = parseFloat(accountInfo.value.uiAmount).toFixed(4); 
             } else {
                 balances[token.mint] = 0;
             }
         } catch (error) {
-            console.error(`Failed to get balance for ${token.name}:`, error);
             balances[token.mint] = 0;
         }
     }
     return balances;
 }
 
-// Function to update dropdowns with balances
 async function updateTokenOptions(balances) {
     const tokenInSelect = document.getElementById("tokenIn");
     const tokenOutSelect = document.getElementById("tokenOut");
 
-    tokenInSelect.innerHTML = '';
-    tokenOutSelect.innerHTML = '';
-
-    // Add default "Select Token" options
     tokenInSelect.innerHTML = '<option value="" disabled selected>Select Token In (with Balance)</option>';
     tokenOutSelect.innerHTML = '<option value="" disabled selected>Select Token Out</option>';
 
     ALL_TOKENS.forEach(token => {
         const balance = balances[token.mint] || 0;
-        
+        const formattedBalance = parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 4 });
+
         // Token In displays balance
         const optionIn = document.createElement('option');
         optionIn.value = token.mint;
-        // Ensure SOL balance is also formatted correctly
-        const formattedBalance = token.name === "SOL" ? parseFloat(balance).toFixed(4) : parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 4 });
-
         optionIn.textContent = `${token.name} (${formattedBalance})`;
         tokenInSelect.appendChild(optionIn);
 
@@ -156,61 +177,92 @@ async function updateTokenOptions(balances) {
     });
 }
 
-// --- Connect Wallet ---
+// --- Connect Wallet LOGIC ---
 document.getElementById("connectBtn").onclick = async () => {
-    if (window.phantom?.solana) {
+    if (!window.phantom?.solana) {
+        return displayError("Please Install Phantom Wallet!");
+    }
+    
+    const connectWallet = async () => {
         try {
             const resp = await window.phantom.solana.connect();
             wallet = resp.publicKey.toString();
             document.getElementById("connectBtn").innerText = "Connected: " + wallet.substring(0,6) + "...";
-            
-            // Get and display balances
             const balances = await getWalletBalances(wallet);
             updateTokenOptions(balances);
-
         } catch (err) {
-            console.error("Connection failed:", err);
-            alert("Wallet Connection Failed!");
+            console.error("Wallet connection failed:", err);
+            displayError("Wallet Connection Failed! Please check your Phantom permissions.");
         }
-    } else {
-        alert("Please Install Phantom Wallet!");
+    };
+    
+    // Check if already connected
+    if (window.phantom.solana.isConnected && window.phantom.solana.publicKey) {
+        wallet = window.phantom.solana.publicKey.toString();
+        document.getElementById("connectBtn").innerText = "Connected: " + wallet.substring(0,6) + "...";
+        try {
+            const balances = await getWalletBalances(wallet);
+            updateTokenOptions(balances);
+        } catch (e) {
+            displayError("Failed to load balances. Try reconnecting.");
+        }
+        return;
     }
+
+    await connectWallet();
 };
 
+// Listen for wallet events
+if (window.phantom?.solana) {
+    window.phantom.solana.on('disconnect', () => {
+        wallet = null;
+        document.getElementById("connectBtn").innerText = "Connect Wallet";
+        document.getElementById("tokenIn").innerHTML = '<option value="" disabled selected>Select Token In (with Balance)</option>';
+        document.getElementById("tokenOut").innerHTML = '<option value="" disabled selected>Select Token Out</option>';
+        displayError("Wallet Disconnected.");
+    });
+    
+    // Auto-connect on load if authorized
+    if (window.phantom.solana.isConnected && window.phantom.solana.publicKey) {
+        document.getElementById("connectBtn").onclick();
+    }
+}
 
-// --- Swap ---
+
+// --- Swap LOGIC ---
 document.getElementById("swapBtn").onclick = async () => {
-    if (!wallet) return alert("Please connect your wallet first.");
+    if (!wallet) return displayError("Please connect your wallet first.");
 
     const amount = document.getElementById("amountIn").value;
     const inputMint = document.getElementById("tokenIn").value;
     const outputMint = document.getElementById("tokenOut").value;
 
-    if (!amount || parseFloat(amount) <= 0) return alert("Please enter a valid amount.");
-    if (!inputMint || !outputMint) return alert("Please select both input and output tokens.");
+    if (!amount || parseFloat(amount) <= 0) return displayError("Please enter a valid amount.");
+    if (!inputMint || !outputMint) return displayError("Please select both input and output tokens.");
+    if (inputMint === outputMint) return displayError("Cannot swap a token for itself.");
 
-    // --- CRITICAL FIX: Calculate amountInLamports using correct decimals ---
     const inputTokenInfo = ALL_TOKENS.find(t => t.mint === inputMint);
-    if (!inputTokenInfo) return alert("Selected input token is not defined in the script.");
+    if (!inputTokenInfo) return displayError("Selected input token is not defined in the script.");
 
+    // Critical: Calculate correct lamport amount using token decimals
     const amountMultiplier = 10 ** inputTokenInfo.decimals; 
     const amountInLamports = Math.floor(parseFloat(amount) * amountMultiplier).toString();
 
-
     // --- GET QUOTE ---
     try {
+        displayError("Fetching best quote from Jupiter...");
         const quoteResponse = await fetch(`${JUP_API}?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountInLamports}&slippageBps=100`);
         const quote = await quoteResponse.json();
 
         if (quote.error) {
-            return alert(`Swap Quote Failed: ${quote.error}. Check liquidity or amount.`);
+            return displayError(`Swap Quote Failed: ${quote.error}. Check liquidity or amount.`);
         }
         
-        // Add referral fee (0.3% = 30 bps)
-        quote.feeBps = 30;
-        quote.feeAccount = "FSqRLFnykDnCZ6mQdnn4GPPwNz6NEFYU7sHKmrrw1X5b";  // Your Fee Wallet Address
+        quote.feeBps = REFERRAL_FEE_BPS;
+        quote.feeAccount = REFERRAL_FEE_ACCOUNT;  
 
         // --- GET SWAP TRANSACTION FROM JUPITER ---
+        displayError("Generating swap transaction...");
         const swapTxResponse = await fetch("https://quote-api.jup.ag/v6/swap-instructions", {
             method: "POST",
             headers: {"Content-Type":"application/json"},
@@ -222,24 +274,35 @@ document.getElementById("swapBtn").onclick = async () => {
         const swapTx = await swapTxResponse.json();
 
         if (swapTx.error || !swapTx.swapTransaction) {
-            return alert(`Transaction Generation Failed: ${swapTx.error || "No swap transaction provided."}`);
+            return displayError(`Transaction Generation Failed: ${swapTx.error || "No swap transaction provided."}`);
         }
         
         // --- EXECUTE TRANSACTION ---
         const tx = Transaction.from(Buffer.from(swapTx.swapTransaction, "base64"));
-        tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+        tx.recentBlockhash = (await connection.getLatestBlockhash('finalized')).blockhash; 
 
+        displayError("Awaiting Wallet Signature...");
         const signed = await window.phantom.solana.signTransaction(tx);
+        
+        displayError("Sending transaction to network...");
         const txid = await connection.sendRawTransaction(signed.serialize());
         
-        alert("Swap Success!\nTX: " + txid);
+        displayError("Confirming transaction...");
+        await connection.confirmTransaction(txid, 'confirmed');
+
+        alert("Swap Success! TX: " + txid);
         
-        // Optional: Reload balance after successful swap
+        // Reload balance after successful swap
         const balances = await getWalletBalances(wallet);
         updateTokenOptions(balances);
         
     } catch (e) {
-        alert("Transaction Execution Failed: " + e.message);
+        // Handle user rejection (code 4001) or network error
+        if (e.code === 4001) {
+            displayError("Transaction was rejected by the user.");
+        } else {
+             displayError("Transaction Failed: " + (e.message || "Unknown error. Check console."));
+        }
         console.error("Execution Error:", e);
     }
 };
