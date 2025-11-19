@@ -4,7 +4,7 @@ import {
 } from "https://esm.sh/@solana/web3.js";
 
 // ---- MAINNET CONNECTION ----
-const connection = new Connection("https://api.mainnet-beta.solana.com");
+const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
 
 // ---- DOM ELEMENTS ----
 const connectBtn = document.getElementById("connectBtn");
@@ -18,60 +18,101 @@ const swapBtn = document.getElementById("swapBtn");
 const statusBox = document.getElementById("status");
 
 let connectedKey = null;
+let provider = null;
+
+// helper: safe set text
+function setText(el, text) {
+  if (!el) return;
+  el.innerText = text;
+}
+
+// wait until page fully loaded (extra safety)
+window.addEventListener("load", () => {
+  // attach listeners (if not already attached)
+  connectBtn && (connectBtn.onclick = handleConnect);
+  detectBtn && (detectBtn.onclick = handleDetect);
+  swapBtn && (swapBtn.onclick = handleSwap);
+
+  // optional: update balances when user types a mint and presses Enter
+  tokenMintInput && tokenMintInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleDetect();
+  });
+});
 
 // ------------------------------------------------------
 // CONNECT WALLET
 // ------------------------------------------------------
-connectBtn.onclick = async () => {
+async function handleConnect() {
   try {
-    const provider = window.phantom?.solana;
-    if (!provider) return alert("Phantom not installed!");
+    provider = window.phantom?.solana;
+    if (!provider) {
+      alert("Phantom not installed! Please install Phantom Wallet on your device.");
+      return;
+    }
 
+    // connect
     const resp = await provider.connect();
     connectedKey = new PublicKey(resp.publicKey.toString());
 
-    walletAddress.innerHTML = connectedKey.toString();
+    setText(walletAddress, `Connected: ${connectedKey.toString()}`);
 
-    // Load SOL balance
+    // attach disconnect listener
+    provider.on && provider.on("disconnect", () => {
+      connectedKey = null;
+      setText(walletAddress, "Not connected");
+      setText(balanceSOL, "SOL: 0");
+      setText(balanceToken, "Token: 0");
+    });
+
+    // load SOL balance
     const solBal = await loadSolBalance(connectedKey);
-    balanceSOL.innerHTML = `SOL: ${solBal}`;
+    setText(balanceSOL, `SOL: ${solBal}`);
 
-    // If token mint filled, load token balance
+    // if token mint is present, load token balance
     const mint = tokenMintInput.value.trim();
     if (mint.length > 0) {
       const tokenBal = await loadSplBalance(connectedKey, mint);
-      balanceToken.innerHTML = `Token: ${tokenBal}`;
+      setText(balanceToken, `Token: ${tokenBal}`);
     }
 
-  } catch (e) {
-    alert("Wallet connection failed!");
+    setText(statusBox, "Wallet connected.");
+  } catch (err) {
+    console.error("connect error:", err);
+    alert("Wallet connection failed. Check console for details.");
+    setText(statusBox, "Connection failed.");
   }
-};
+}
 
 // ------------------------------------------------------
 // LOAD SOL BALANCE
 // ------------------------------------------------------
-export async function loadSolBalance(pubkey) {
+async function loadSolBalance(pubkey) {
   try {
     const lamports = await connection.getBalance(pubkey);
     return (lamports / 1e9).toFixed(4);
-  } catch (_) {
-    return 0;
+  } catch (err) {
+    console.error("loadSolBalance error", err);
+    return "0";
   }
 }
 
 // ------------------------------------------------------
 // LOAD SPL TOKEN BALANCE
 // ------------------------------------------------------
-export async function loadSplBalance(pubkey, mintAddress) {
+async function loadSplBalance(pubkey, mintAddress) {
   try {
     const mint = new PublicKey(mintAddress);
-    const ata = await connection.getParsedTokenAccountsByOwner(pubkey, { mint });
 
-    if (ata.value.length === 0) return 0;
+    // get token accounts for owner filtered by mint
+    const resp = await connection.getParsedTokenAccountsByOwner(pubkey, { mint });
 
-    return ata.value[0].account.data.parsed.info.tokenAmount.uiAmount;
-  } catch (e) {
+    if (!resp || resp.value.length === 0) return 0;
+
+    // find largest or first
+    const info = resp.value[0].account.data.parsed.info;
+    return info.tokenAmount.uiAmount ?? info.tokenAmount.amount ?? 0;
+  } catch (err) {
+    console.error("loadSplBalance error", err);
     return 0;
   }
 }
@@ -79,44 +120,62 @@ export async function loadSplBalance(pubkey, mintAddress) {
 // ------------------------------------------------------
 // DETECT TOKEN INFO
 // ------------------------------------------------------
-detectBtn.onclick = async () => {
+async function handleDetect() {
   const mint = tokenMintInput.value.trim();
 
   if (!mint) {
-    tokenInfo.innerHTML = "Please input token mint";
+    setText(tokenInfo, "Please input token mint");
     return;
   }
 
+  setText(tokenInfo, "Detecting token...");
+  setText(statusBox, "");
+
   try {
     const mintPk = new PublicKey(mint);
-    const mintAcc = await connection.getParsedAccountInfo(mintPk);
+    const parsed = await connection.getParsedAccountInfo(mintPk);
 
-    if (!mintAcc.value) {
-      tokenInfo.innerHTML = "Invalid token mint!";
+    if (!parsed || !parsed.value) {
+      setText(tokenInfo, "Invalid token mint or not found on-chain.");
       return;
     }
 
-    const data = mintAcc.value.data.parsed.info;
-    tokenInfo.innerHTML = `
-      <div>Name: ${data.name ?? "Unknown"}</div>
-      <div>Decimals: ${data.decimals}</div>
-      <div>Supply: ${data.supply}</div>
-    `;
+    // parsed.value.data may be an object with parsed info (for mint it depends)
+    let info = parsed.value.data?.parsed?.info ?? null;
 
-    // auto load balance
+    // fallback: try to read some basic fields from the account
+    let decimals = info?.decimals ?? (parsed.value?.data?.parsed?.info?.decimals ?? "unknown");
+    let supply = info?.supply ?? "unknown";
+
+    // build display (best-effort)
+    const out = [];
+    out.push(`Decimals: ${decimals}`);
+    out.push(`Supply: ${supply}`);
+
+    // try to show mint owner / authority if present
+    if (info?.mintAuthority) out.push(`Mint Authority: ${info.mintAuthority}`);
+    if (info?.freezeAuthority) out.push(`Freeze Authority: ${info.freezeAuthority}`);
+
+    setText(tokenInfo, out.join(" | "));
+
+    // auto load token balance if wallet connected
     if (connectedKey) {
       const bal = await loadSplBalance(connectedKey, mint);
-      balanceToken.innerHTML = `Token: ${bal}`;
+      setText(balanceToken, `Token: ${bal}`);
     }
 
-  } catch {
-    tokenInfo.innerHTML = "Token detection error!";
+    setText(statusBox, "Token detection complete.");
+  } catch (err) {
+    console.error("detect error:", err);
+    setText(tokenInfo, "Token detection error. Check console.");
+    setText(statusBox, "Token detection failed.");
   }
-};
+}
 
 // ------------------------------------------------------
-// SWAP BUTTON (COMING SOON OR USING JUPITER API)
-// ------------------------------------------------------
-swapBtn.onclick = async () => {
-  statusBox.innerHTML = "Swap function still in progress...";
-};
+// SWAP BUTTON (placeholder -> integrate Jupiter)
+ // ------------------------------------------------------
+async function handleSwap() {
+  setText(statusBox, "Swap function not yet implemented. Integrate Jupiter API here.");
+  // future: call Jupiter REST endpoints, sign transactions with provider.signTransaction, send, confirm
+}
