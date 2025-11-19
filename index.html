@@ -15,31 +15,42 @@
     <button id="connectBtn">Connect Wallet</button>
     <p id="walletAddress"></p>
 
+    <!-- Balance -->
+    <p id="balanceInfo"></p>
+
     <!-- Swap Box -->
     <div class="swap-box">
 
-      <!-- Token From -->
-      <div class="row">
-        <select id="fromToken"></select>
+      <!-- From -->
+      <div class="token-row">
+        <div class="tokenselect">
+          <img id="fromLogo" src="assets/sol.png">
+          <select id="fromToken"></select>
+        </div>
         <input type="number" id="fromAmount" placeholder="0.00" />
       </div>
 
-      <!-- Arrow -->
       <div class="arrow">↓</div>
 
-      <!-- Token To -->
-      <div class="row">
-        <select id="toToken"></select>
-        <input type="text" id="toAmount" placeholder="0.00" disabled />
+      <!-- To -->
+      <div class="token-row">
+        <div class="tokenselect">
+          <img id="toLogo" src="assets/usdc.png">
+          <select id="toToken"></select>
+        </div>
+        <input type="text" id="toAmount" disabled />
       </div>
 
       <button id="quoteBtn">Get Quote</button>
       <button id="swapBtn">Swap</button>
 
+      <!-- STATUS -->
       <p id="status"></p>
     </div>
   </div>
 
-  <script src="web.js"></script>
+  <script src="https://unpkg.com/@solana/web3.js@1.77.3/lib/index.iife.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bs58"></script>
+  <script type="module" src="web.js"></script>
 </body>
 </html>
