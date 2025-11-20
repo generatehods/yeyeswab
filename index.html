@@ -15,15 +15,12 @@
     }
 
     .header {
-      text-align: center;
+      display: flex;
+      justify-content: space-between; /* tombol kiri, logo kanan */
+      align-items: center;
       padding: 20px;
-      font-size: 22px;
-      font-weight: 600;
       background: #0d1328;
       box-shadow: 0 1px 10px rgba(0,0,0,0.7);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
     }
 
     .connect-btn {
@@ -34,9 +31,15 @@
       color: white;
       border-radius: 10px;
       cursor: pointer;
-      margin-right: 15px;
       font-weight: 600;
       box-shadow: 0 0 20px rgba(45,107,255,0.4);
+    }
+
+    .logo-right {
+      width: 25px;
+      height: 25px;
+      object-fit: contain;
+      margin-left: 10px;
     }
 
     .container {
@@ -137,10 +140,10 @@
 
 <body>
 
-  <!-- HEADER + CONNECT BUTTON -->
+  <!-- HEADER -->
   <div class="header">
-    
     <button class="connect-btn" id="connectWalletBtn">Connect Wallet</button>
+    <img src="https://raw.githubusercontent.com/generatehods/yeyeswab/main/20251116_124325.jpg" alt="Logo" class="logo-right">
   </div>
 
   <div class="container">
@@ -171,7 +174,6 @@
     </div>
   </div>
 
-  <!-- LINK KE WEB.JS -->
   <script type="module" src="web.js"></script>
 
 </body>
