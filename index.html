@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>yeyeswab</title>
+  <title>YEYESWAB</title>
 
   <style>
     body {
@@ -21,6 +21,22 @@
       font-weight: 600;
       background: #0d1328;
       box-shadow: 0 1px 10px rgba(0,0,0,0.7);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .connect-btn {
+      padding: 10px 16px;
+      background: #2d6bff;
+      border: none;
+      font-size: 15px;
+      color: white;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-right: 15px;
+      font-weight: 600;
+      box-shadow: 0 0 20px rgba(45,107,255,0.4);
     }
 
     .container {
@@ -121,7 +137,11 @@
 
 <body>
 
-  <div class="header"></div>
+  <!-- HEADER + CONNECT BUTTON -->
+  <div class="header">
+    
+    <button class="connect-btn" id="connectWalletBtn">Connect Wallet</button>
+  </div>
 
   <div class="container">
     <div class="swap-card">
@@ -150,6 +170,9 @@
 
     </div>
   </div>
+
+  <!-- LINK KE WEB.JS -->
+  <script type="module" src="web.js"></script>
 
 </body>
 </html>
