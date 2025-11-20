@@ -1,75 +1,67 @@
-// web.js - FIXED FOR GITHUB PAGES + PHANTOM MOBILE
 import { Connection, PublicKey } from "https://esm.sh/@solana/web3.js";
 
-// ---- SAFE RPC FOR BROWSER ----
-const RPC_PRIMARY =
-  "https://mainnet.helius-rpc.com/?api-key=fa9ea42b-0cc0-4ab9-bc5f-384d219ab5d9";
+// --- CONFIG MAINNET ---
+const connection = new Connection("https://api.mainnet-beta.solana.com");
 
-const RPC_FALLBACK = "https://rpc.hellomoon.io";
+// DOM ELEMENTS
+const connectBtn = document.getElementById("connectWalletBtn");
+const balanceEl = document.querySelector(".balance");
 
-let connection = new Connection(RPC_PRIMARY, "confirmed");
+let walletPublicKey = null;
 
-async function ensureConnection() {
+// --- HELPER FUNCTION TO GET SOL BALANCE ---
+async function getSolBalance(pubkey) {
+  const balanceLamports = await connection.getBalance(pubkey);
+  const balanceSOL = balanceLamports / 1e9;
+  return balanceSOL.toFixed(4);
+}
+
+// --- CONNECT PHANTOM WALLET ---
+async function connectWallet() {
   try {
-    await connection.getEpochInfo();
-  } catch (e) {
-    console.warn("Switching RPC → fallback");
-    connection = new Connection(RPC_FALLBACK, "confirmed");
+    if (!window.solana) {
+      alert("Please install Phantom wallet!");
+      return;
+    }
+
+    const resp = await window.solana.connect();
+    walletPublicKey = resp.publicKey;
+    connectBtn.innerText = walletPublicKey.toString().slice(0, 4) + "..." + walletPublicKey.toString().slice(-4);
+
+    // load balance
+    const solBal = await getSolBalance(walletPublicKey);
+    balanceEl.innerText = `Balance: ${solBal} SOL`;
+
+    // Optional: auto-refresh every 10s
+    setInterval(async () => {
+      const solBal = await getSolBalance(walletPublicKey);
+      balanceEl.innerText = `Balance: ${solBal} SOL`;
+    }, 10000);
+
+  } catch (err) {
+    console.error("Wallet connect failed", err);
   }
 }
 
-// ---- DOM ----
-const connectBtn = document.getElementById("connectBtn");
-const walletAddressEl = document.getElementById("walletAddress");
-const balanceSOLEl = document.getElementById("balanceSOL");
-const balanceTokenEl = document.getElementById("balanceToken");
-const tokenMintInput = document.getElementById("tokenMint");
-const detectBtn = document.getElementById("detectBtn");
-const tokenInfoEl = document.getElementById("tokenInfo");
-const statusBox = document.getElementById("status");
-const swapBtn = document.getElementById("swapBtn");
-
-let provider = null;
-let connectedPubkey = null;
-
-function setStatus(t) {
-  if (statusBox) statusBox.innerText = t || "";
-}
-function set(el, t) {
-  if (el) el.innerText = t;
-}
-
-// ---- Phantom Detection ----
-function getPhantom() {
-  if (window.phantom?.solana?.isPhantom) return window.phantom.solana;
-  if (window.solana?.isPhantom) return window.solana;
-  return null;
-}
-
-// ---- Load SOL ----
-async function loadSolBalance(pubkey) {
+// --- DISCONNECT (Optional) ---
+async function disconnectWallet() {
   try {
-    await ensureConnection();
-    set(balanceSOLEl, "SOL: loading...");
-    const lamports = await connection.getBalance(new PublicKey(pubkey));
-    const sol = (lamports / 1e9).toFixed(6);
-    set(balanceSOLEl, `SOL: ${sol}`);
-  } catch (e) {
-    console.error(e);
-    set(balanceSOLEl, "SOL: error");
+    if (window.solana && window.solana.isConnected) {
+      await window.solana.disconnect();
+      walletPublicKey = null;
+      connectBtn.innerText = "Connect Wallet";
+      balanceEl.innerText = `Balance: 0.00`;
+    }
+  } catch (err) {
+    console.error("Disconnect failed", err);
   }
 }
 
-// ---- Load Token ----
-async function loadTokenBalance(pubkey, mint) {
-  try {
-    if (!mint) return set(balanceTokenEl, "Token: -");
-    await ensureConnection();
-    set(balanceTokenEl, "Token: loading...");
-
-    const resp = await connection.getParsedTokenAccountsByOwner(
-      new PublicKey(pubkey),
-      { mint: new PublicKey(mint) }
-    );
-
-    if (!resp.value.length) return set(balanceTokenEl, "Token:
+// --- EVENT LISTENER ---
+connectBtn.addEventListener("click", async () => {
+  if (!walletPublicKey) {
+    await connectWallet();
+  } else {
+    await disconnectWallet();
+  }
+});
