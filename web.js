@@ -1,139 +1,168 @@
-import { Connection, PublicKey, Transaction, SystemProgram } from "https://esm.sh/@solana/web3.js";
+import { Connection, PublicKey, VersionedTransaction } from "https://esm.sh/@solana/web3.js";
 
 // --- CONFIG MAINNET ---
 const connection = new Connection("https://api.mainnet-beta.solana.com");
 
 // DOM
 const connectBtn = document.getElementById("connectWalletBtn");
-const balanceEl = document.querySelector(".balance");
 const payAmountEl = document.getElementById("payAmount");
 const receiveAmountEl = document.getElementById("receiveAmount");
 const payTokenEl = document.getElementById("payToken");
 const receiveTokenEl = document.getElementById("receiveToken");
 const swapBtn = document.getElementById("swapBtn");
+const balanceEl = document.querySelector(".balance");
 
 // SPL Token Example: USDC Mainnet
 const USDC_MINT = new PublicKey("EPjFWdd5AuHj4cA4C1QJDZ2sRfjMTFqonF9xS1k2s4");
 
+// Wallet state
 let walletPublicKey = null;
 
-// --- GET SOL BALANCE ---
-async function getSolBalance(pubkey) {
-  const lamports = await connection.getBalance(pubkey);
-  return (lamports / 1e9).toFixed(4);
-}
-
-// --- GET SPL TOKEN BALANCE ---
-async function getSplTokenBalance(pubkey, mint) {
-  const accounts = await connection.getTokenAccountsByOwner(pubkey, { mint });
-  if (accounts.value.length === 0) return 0.0;
-  const amount = accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount;
-  return amount;
+// --- UTILITIES ---
+function showLoading(isLoading) {
+  if (isLoading) {
+    swapBtn.innerText = "Swapping...";
+    swapBtn.disabled = true;
+  } else {
+    swapBtn.innerText = "Swap";
+    swapBtn.disabled = false;
+  }
 }
 
 // --- LOAD BALANCES ---
 async function loadBalances() {
   if (!walletPublicKey) return;
+  try {
+    const lamports = await connection.getBalance(walletPublicKey);
+    const sol = lamports / 1e9;
+    balanceEl.innerText = `Balance: ${sol.toFixed(4)} SOL`;
 
-  const solBal = await getSolBalance(walletPublicKey);
-  balanceEl.innerText = `Balance: ${solBal} SOL`;
-
-  const usdcBal = await getSplTokenBalance(walletPublicKey, USDC_MINT);
-  if (payTokenEl.innerText.startsWith("USDC")) {
-    payAmountEl.value = usdcBal;
-  } else {
-    receiveAmountEl.value = usdcBal;
+    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(walletPublicKey, { mint: USDC_MINT });
+    let usdc = 0.0;
+    if (tokenAccounts.value.length > 0) {
+      usdc = tokenAccounts.value[0].account.data.parsed.info.tokenAmount.uiAmount;
+    }
+    receiveAmountEl.value = usdc.toFixed(6);
+  } catch (err) {
+    console.error("Load balance error:", err);
   }
 }
 
 // --- CONNECT WALLET ---
-async function connectWallet() {
+connectBtn.addEventListener("click", async () => {
   try {
-    if (window.solana && window.solana.isPhantom) {
-      const resp = await window.solana.connect();
-      walletPublicKey = resp.publicKey;
-    } else {
-      alert("Open in a browser or implement Solana Mobile Wallet Adapter for Phantom App Android.");
-      return;
-    }
-
+    const resp = await window.solana.connect();
+    walletPublicKey = resp.publicKey;
     connectBtn.innerText = walletPublicKey.toString().slice(0,4) + "..." + walletPublicKey.toString().slice(-4);
-
     await loadBalances();
-    setInterval(loadBalances, 10000); // auto refresh
-
   } catch (err) {
     console.error("Connect wallet failed:", err);
-  }
-}
-
-// --- DISCONNECT ---
-async function disconnectWallet() {
-  if (window.solana && window.solana.isConnected) {
-    await window.solana.disconnect();
-  }
-  walletPublicKey = null;
-  connectBtn.innerText = "Connect Wallet";
-  balanceEl.innerText = "Balance: 0.00";
-  payAmountEl.value = "0.0";
-  receiveAmountEl.value = "0.0";
-}
-
-// --- SWAP LOGIC (Simplified, Mainnet SOL ↔ USDC) ---
-// NOTE: For production, integrate Jupiter/Raydium API for real swap
-async function swap() {
-  if (!walletPublicKey) {
-    alert("Connect your wallet first!");
-    return;
-  }
-
-  let payToken = payTokenEl.innerText;
-  let receiveToken = receiveTokenEl.innerText;
-  let payAmount = parseFloat(payAmountEl.value);
-
-  if (payAmount <= 0) {
-    alert("Enter amount to swap");
-    return;
-  }
-
-  // Dummy logic: just toggle balances
-  if (payToken.startsWith("SOL") && receiveToken.startsWith("USDC")) {
-    // Swap SOL → USDC (example rate 1 SOL = 20 USDC)
-    const usdcReceived = payAmount * 20;
-    payAmountEl.value = 0;
-    receiveAmountEl.value = usdcReceived.toFixed(4);
-  } else if (payToken.startsWith("USDC") && receiveToken.startsWith("SOL")) {
-    // Swap USDC → SOL (1 SOL = 20 USDC)
-    const solReceived = payAmount / 20;
-    payAmountEl.value = 0;
-    receiveAmountEl.value = solReceived.toFixed(4);
-  } else {
-    alert("Unsupported token swap");
-  }
-
-  // Reload balances after swap
-  await loadBalances();
-}
-
-// --- EVENT LISTENERS ---
-connectBtn.addEventListener("click", async () => {
-  if (!walletPublicKey) {
-    await connectWallet();
-  } else {
-    await disconnectWallet();
+    alert("Failed to connect wallet");
   }
 });
 
-swapBtn.addEventListener("click", swap);
+// --- GET QUOTE FROM JUPITER ---
+async function getJupiterQuote(inputMint, outputMint, amountLamports, slippageBps = 50) {
+  const endpoint = "https://quote-api.jup.ag/v4/quote";
+  const params = new URLSearchParams({
+    inputMint: inputMint.toString(),
+    outputMint: outputMint.toString(),
+    amount: amountLamports.toString(),
+    slippageBps: slippageBps.toString(),
+    onlyDirectRoutes: "false"
+  });
 
-// Optional: Switch button (⇅)
+  const res = await fetch(`${endpoint}?${params.toString()}`);
+  const data = await res.json();
+  if (!data.data || data.data.length === 0) throw new Error("No route found");
+  return data.data[0]; // ambil route pertama
+}
+
+// --- GET SWAP TRANSACTION ---
+async function getSwapTransaction(route, userPublicKey) {
+  const endpoint = "https://quote-api.jup.ag/v4/swap";
+  const body = { route: route, userPublicKey: userPublicKey.toString() };
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!data.transaction) throw new Error("Swap transaction not found");
+  return data.transaction;
+}
+
+// --- SWAP FUNCTION ---
+async function doSwap() {
+  if (!walletPublicKey) {
+    alert("Connect wallet first!");
+    return;
+  }
+
+  const payAmount = parseFloat(payAmountEl.value);
+  if (!payAmount || payAmount <= 0) {
+    alert("Enter valid amount");
+    return;
+  }
+
+  let inputMint = payTokenEl.innerText.startsWith("SOL")
+    ? new PublicKey("So11111111111111111111111111111111111111112")
+    : USDC_MINT;
+
+  let outputMint = receiveTokenEl.innerText.startsWith("USDC")
+    ? USDC_MINT
+    : new PublicKey("So11111111111111111111111111111111111111112");
+
+  // Convert amount
+  let amountLamports = inputMint.equals(new PublicKey("So11111111111111111111111111111111111111112"))
+    ? payAmount * 1e9
+    : Math.round(payAmount * 1e6); // USDC 6 decimals
+
+  try {
+    showLoading(true);
+
+    // 1. Get quote
+    const route = await getJupiterQuote(inputMint, outputMint, amountLamports);
+
+    // 2. Get swap transaction
+    const txBase64 = await getSwapTransaction(route, walletPublicKey);
+
+    // 3. Deserialize
+    const txBuffer = Buffer.from(txBase64, "base64");
+    const transaction = VersionedTransaction.deserialize(txBuffer);
+
+    // 4. Sign transaction
+    const signed = await window.solana.signTransaction(transaction);
+
+    // 5. Send transaction
+    const sig = await connection.sendRawTransaction(signed.serialize());
+    await connection.confirmTransaction(sig, "confirmed");
+
+    alert("Swap sukses! Sig: " + sig);
+
+    // Reload balances
+    await loadBalances();
+
+  } catch (err) {
+    console.error("Swap error:", err);
+    alert("Swap gagal: " + err.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+// --- EVENT LISTENER SWAP ---
+swapBtn.addEventListener("click", doSwap);
+
+// --- OPTIONAL: Switch tokens (⇅) ---
 document.querySelector(".switch-btn").addEventListener("click", () => {
-  // Swap tokens in UI
+  // Swap token names
   let temp = payTokenEl.innerText;
   payTokenEl.innerText = receiveTokenEl.innerText;
   receiveTokenEl.innerText = temp;
 
-  // Swap values
+  // Swap input values
   let tempVal = payAmountEl.value;
   payAmountEl.value = receiveAmountEl.value;
   receiveAmountEl.value = tempVal;
