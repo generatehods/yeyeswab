@@ -6,7 +6,24 @@
   <title>YEYESWAB</title>
 
   <style>
-    body {
+    body { 
+      <div id="integrated-terminal" style="width: 400px; height: 600px;"></div>
+
+<script src="https://terminal.jup.ag/main-v3.js"></script>
+
+<script>
+  window.Jupiter.init({
+    displayMode: "integrated",
+    integratedTargetId: "integrated-terminal",
+    endpoint: "https://api.mainnet-beta.solana.com", // Ganti dengan RPC milikmu jika ada
+    template: "Pro", // Ini akan mengaktifkan tampilan Pro yang Anda inginkan
+    strictTokenList: false, // Set ke true jika hanya ingin token terverifikasi
+    formProps: {
+      initialAmount: "100000000", // Contoh 0.1 SOL awal
+    },
+  });
+</script>
+
       margin: 0;
       padding: 0;
       font-family: "Inter", sans-serif;
