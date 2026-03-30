@@ -1,5 +1,14 @@
 // 1. Fungsi untuk mendapatkan harga (Quote) dari Jupiter
-async function getQuote(inputMint, outputMint, amount) {
+async function getQuote(// Ambil angka dari input HTML (ID: payAmount)
+const uiAmount = document.getElementById('payAmount').value;
+if (!uiAmount || uiAmount <= 0) {
+    alert("Masukkan jumlah SOL yang ingin di-swap!");
+    return;
+}
+
+// Konversi ke Lamports (SOL punya 9 desimal)
+const amount = Math.floor(uiAmount * 1000000000); 
+) {
     try {
         const response = await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=50`);
         const quoteResponse = await response.json();
