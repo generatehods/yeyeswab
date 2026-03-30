@@ -12,6 +12,7 @@
       font-family: "Inter", sans-serif;
       background: #0a0f1f;
       color: #fff;
+      overflow-x: hidden;
     }
 
     .header {
@@ -21,6 +22,9 @@
       padding: 15px 20px;
       background: #0d1328;
       border-bottom: 1px solid #1e2645;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
 
     .logo-container {
@@ -44,17 +48,20 @@
     .container {
       width: 100%;
       max-width: 440px;
-      margin: 20px auto;
-      padding: 0 10px;
+      margin: 0 auto;
+      padding: 10px;
       box-sizing: border-box;
+      min-height: 100vh; /* Memastikan ada ruang untuk render */
     }
 
-    /* Styling untuk Terminal Jupiter agar memenuhi layar mobile */
+    /* Perbaikan agar tidak blank di ponsel */
     #integrated-terminal {
       width: 100%;
-      height: 600px;
+      min-height: 600px; 
       border-radius: 16px;
       overflow: hidden;
+      background: #11172f; /* Warna placeholder saat loading */
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
   </style>
 </head>
@@ -69,29 +76,31 @@
   </div>
 
   <div class="container">
-    <!-- Jupiter Terminal langsung tampil di sini -->
+    <!-- Kontainer Terminal -->
     <div id="integrated-terminal"></div>
   </div>
 
+  <!-- Script Utama Jupiter -->
   <script src="https://terminal.jup.ag/main-v3.js"></script>
 
   <script>
+    // Pastikan Anda mengganti ALAMAT_WALLET_ANDA dengan alamat asli dari Phantom
     window.Jupiter.init({
       displayMode: "integrated",
       integratedTargetId: "integrated-terminal",
-      endpoint: "https://api.mainnet-beta.solana.com", // Disarankan pakai RPC pribadi (Helius/Quicknode)
+      endpoint: "https://api.mainnet-beta.solana.com", 
       template: "Pro",
       
-      // PENGATURAN FEE (UANG MASUK)
-      platformFeeBps: 20, // 20 Bps = 0.2% dari setiap transaksi swap
+      // PENGATURAN FEE (UANG MASUK ANDA)
+      platformFeeBps: 20, // 0.2% fee
       feeAccounts: new Map([
-        // GANTI ALAMAT DI BAWAH DENGAN WALLET SOLANA ANDA
-        ["So11111111111111111111111111111111111111112", "ALAMAT_WALLET_ANDA_DI_SINI"]
+        // Ganti teks di bawah dengan alamat wallet Anda
+        ["So11111111111111111111111111111111111111112", "ALAMAT_WALLET_ANDA"]
       ]),
 
       formProps: {
-        initialInputMint: "So11111111111111111111111111111111111111112", // Default SOL
-        initialOutputMint: "EPjFW3F2Tzq25165QGbbVeyJBeRxMpD1rk15M81NvnYm", // Default USDC
+        initialInputMint: "So11111111111111111111111111111111111111112", 
+        initialOutputMint: "EPjFW3F2Tzq25165QGbbVeyJBeRxMpD1rk15M81NvnYm",
       },
     });
   </script>
