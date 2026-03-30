@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>YEYESWAB</title>
 
-  <!-- Library Penting untuk Solana -->
-  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
-
   <style>
     body { 
       margin: 0;
@@ -15,7 +12,6 @@
       font-family: "Inter", sans-serif;
       background: #0a0f1f;
       color: #fff;
-      overflow-x: hidden; /* Mencegah layar geser kanan-kiri */
     }
 
     .header {
@@ -24,109 +20,41 @@
       align-items: center;
       padding: 15px 20px;
       background: #0d1328;
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      border-bottom: 1px solid #1e2645;
     }
 
-    .connect-btn {
-      padding: 8px 14px;
-      background: #2d6bff;
-      border: none;
-      font-size: 14px;
-      color: white;
-      border-radius: 10px;
-      cursor: pointer;
-      font-weight: 600;
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
-    .logo-right {
-      width: 30px;
-      height: 30px;
+    .logo-img {
+      width: 32px;
+      height: 32px;
       object-fit: contain;
+    }
+
+    .brand-name {
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: 1px;
     }
 
     .container {
       width: 100%;
-      max-width: 420px;
+      max-width: 440px;
       margin: 20px auto;
-      padding: 0 15px;
-      box-sizing: border-box; /* Sangat penting agar padding tidak merusak lebar */
-    }
-
-    .swap-card {
-      width: 100%;
-      background: #11172f;
-      padding: 18px;
-      border-radius: 18px;
-      border: 1px solid #1e2645;
+      padding: 0 10px;
       box-sizing: border-box;
     }
 
-    .token-box {
-      background: #0d1328;
-      padding: 12px 15px;
-      border-radius: 15px;
-      display: flex;
-      flex-direction: column; /* Baris baru untuk input di HP agar luas */
-      margin-bottom: 15px;
-    }
-
-    .token-box span {
-      font-size: 12px;
-      margin-bottom: 5px;
-      opacity: 0.7;
-    }
-
-    .amount-input {
-      background: transparent;
-      border: none;
-      color: white;
-      font-size: 24px;
-      width: 100%;
-      outline: none;
-      font-weight: bold;
-    }
-
-    .swap-btn {
-      width: 100%;
-      padding: 16px;
-      background: linear-gradient(135deg, #2d6bff, #5f89ff);
-      border: none;
-      border-radius: 14px;
-      font-size: 16px;
-      color: white;
-      cursor: pointer;
-      font-weight: 700;
-      transition: 0.2s;
-    }
-
-    .swap-btn:active {
-      transform: scale(0.98);
-    }
-
-    /* Styling Jupiter Terminal agar responsif di HP */
+    /* Styling untuk Terminal Jupiter agar memenuhi layar mobile */
     #integrated-terminal {
       width: 100%;
-      height: 550px;
-      border-radius: 18px;
+      height: 600px;
+      border-radius: 16px;
       overflow: hidden;
-      border: 1px solid #1e2645;
-      margin-top: 20px;
-    }
-
-    p.label-jup {
-      font-size: 12px;
-      opacity: 0.6;
-      text-align: center;
-      margin-top: 30px;
-    }
-
-    hr {
-      width: 100%;
-      border: 0;
-      border-top: 1px solid #1e2645;
-      margin: 20px 0;
     }
   </style>
 </head>
@@ -134,59 +62,38 @@
 <body>
 
   <div class="header">
-    <button class="connect-btn" id="connectWalletBtn">Connect Wallet</button>
-    <img src="https://raw.githubusercontent.com/generatehods/yeyeswab/main/20251116_124325.png" alt="Logo" class="logo-right">
+    <div class="logo-container">
+      <img src="https://raw.githubusercontent.com/generatehods/yeyeswab/main/20251116_124325.png" alt="Logo" class="logo-img">
+      <span class="brand-name">YEYESWAB</span>
+    </div>
   </div>
 
   <div class="container">
-    <!-- UI SWAP LOKAL -->
-    <div class="swap-card">
-      <div class="token-box">
-        <span>You Pay SOL</span>
-        <input type="number" id="payAmount" class="amount-input" placeholder="0.0" inputmode="decimal">
-      </div>
-      
-      <button class="swap-btn" onclick="processSwap()">Swap via Yeyeswab</button>
-    </div>
-
-    <hr>
-    <p class="label-jup">Atau gunakan Jupiter Terminal Pro:</p>
-
-    <!-- TEMPAT JUPITER TERMINAL MUNCUL -->
+    <!-- Jupiter Terminal langsung tampil di sini -->
     <div id="integrated-terminal"></div>
   </div>
 
-  <!-- SCRIPT LOGIKA -->
-  <script src="api.js"></script>
   <script src="https://terminal.jup.ag/main-v3.js"></script>
 
   <script>
-    // Inisialisasi Jupiter Terminal
     window.Jupiter.init({
       displayMode: "integrated",
       integratedTargetId: "integrated-terminal",
-      endpoint: "https://api.mainnet-beta.solana.com",
+      endpoint: "https://api.mainnet-beta.solana.com", // Disarankan pakai RPC pribadi (Helius/Quicknode)
       template: "Pro",
+      
+      // PENGATURAN FEE (UANG MASUK)
+      platformFeeBps: 20, // 20 Bps = 0.2% dari setiap transaksi swap
+      feeAccounts: new Map([
+        // GANTI ALAMAT DI BAWAH DENGAN WALLET SOLANA ANDA
+        ["So11111111111111111111111111111111111111112", "ALAMAT_WALLET_ANDA_DI_SINI"]
+      ]),
+
       formProps: {
-        initialAmount: "100000000",
+        initialInputMint: "So11111111111111111111111111111111111111112", // Default SOL
+        initialOutputMint: "EPjFW3F2Tzq25165QGbbVeyJBeRxMpD1rk15M81NvnYm", // Default USDC
       },
     });
-
-    // Logika Connect Wallet (Phantom/Solflare Mobile)
-    document.getElementById('connectWalletBtn').onclick = async () => {
-      const provider = window.solana || window.phantom?.solana;
-      if (provider) {
-        try {
-          const res = await provider.connect();
-          const pubKey = res.publicKey.toString();
-          document.getElementById('connectWalletBtn').innerText = pubKey.slice(0,4) + '...' + pubKey.slice(-4);
-        } catch (err) {
-          console.error(err);
-        }
-      } else {
-        alert("Wallet tidak terdeteksi. Gunakan browser di dalam aplikasi Phantom!");
-      }
-    };
   </script>
 
 </body>
